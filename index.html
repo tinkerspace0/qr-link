@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Centre Inventory</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        let existingData = []; // Array to store the existing data from the Excel file
+        let productDetails = {}; // Object to store the current product details
+
+        // Fixed product details
+        const productDetailsFixed = {
+            ProductNumber: 1234,  // Product Number
+            SerialNumber: 1222,   // Serial Number
+            ProductName: "ASDF",  // Fixed Product Name
+        };
+
+        // Function to read the uploaded Excel file
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = e.target.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+
+                // Assuming the first sheet contains the data
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                existingData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                console.log("Existing Data:", existingData);
+
+                // Display the existing data in the browser
+                displayExistingData();
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        // Function to display the existing data in a table
+        function displayExistingData() {
+            const table = document.getElementById("data-table");
+            table.innerHTML = ""; // Clear the table
+
+            existingData.forEach(row => {
+                const tr = table.insertRow();
+                row.forEach(cell => {
+                    const td = tr.insertCell();
+                    td.textContent = cell;
+                });
+            });
+        }
+
+        // Function to extract product details from the URL and update the table
+        function extractProductDetailsFromURL() {
+            const params = new URLSearchParams(window.location.search);
+
+            // Extract product details from the URL query parameters
+            productDetails = {
+                ProductNumber: productDetailsFixed.ProductNumber,
+                SerialNumber: productDetailsFixed.SerialNumber,
+                ProductName: productDetailsFixed.ProductName,
+                Latitude: params.get("Latitude") || "N/A",
+                Longitude: params.get("Longitude") || "N/A",
+                Timestamp: params.get("Timestamp") || new Date().toISOString(),
+            };
+
+            // Display the product details on the page
+            document.getElementById("details-info").innerHTML = `
+                <h3>Product Details:</h3>
+                <p>Product Number: ${productDetails.ProductNumber}</p>
+                <p>Serial Number: ${productDetails.SerialNumber}</p>
+                <p>Product Name: ${productDetails.ProductName}</p>
+                <p>Latitude: ${productDetails.Latitude}</p>
+                <p>Longitude: ${productDetails.Longitude}</p>
+                <p>Timestamp: ${productDetails.Timestamp}</p>
+            `;
+        }
+
+        // Function to add new data (e.g., from geolocation and timestamp)
+        function addNewData() {
+            // Add the new row with product details
+            const newRow = [
+                productDetails.ProductNumber,
+                productDetails.SerialNumber,
+                productDetails.ProductName,
+                productDetails.Latitude,
+                productDetails.Longitude,
+                productDetails.Timestamp
+            ];
+
+            existingData.push(newRow); // Add the new data to existing data
+            console.log("Updated Data:", existingData);
+
+            // Display the updated data in the table
+            displayExistingData();
+        }
+
+        // Function to export the updated data to an Excel file
+        function exportToExcel() {
+            const worksheetData = [
+                ["Product Number", "Serial Number", "Product Name", "Latitude", "Longitude", "Timestamp"],
+                ...existingData.map(row => row)
+            ];
+
+            const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Updated Product Data");
+
+            // Export the updated Excel file
+            XLSX.writeFile(workbook, "UpdatedProductData.xlsx");
+        }
+
+        // Function to get geolocation details
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const latitude = position.coords.latitude;
+                        const longitude = position.coords.longitude;
+                        const timestamp = new Date().toISOString(); // ISO 8601 timestamp
+
+                        // Update geolocation and add the data
+                        productDetails.Latitude = latitude;
+                        productDetails.Longitude = longitude;
+                        productDetails.Timestamp = timestamp;
+
+                        // Display the geolocation info on the page
+                        addNewData();
+
+                        // Export the updated Excel file automatically after getting geolocation data
+                        exportToExcel();
+                    },
+                    (error) => {
+                        console.error("Geolocation Error:", error);
+                        alert("Unable to retrieve your location. Please check your permissions.");
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        // Automatically run on page load
+        window.onload = function() {
+            // Extract product details from the URL
+            extractProductDetailsFromURL();
+
+            // Prompt for geolocation and update the Excel file
+            getLocation();
+        };
+    </script>
+</head>
+<body>
+    <h1>Demo Centre Inventory</h1>
+    <div id="details-info"></div>
+
+    <h2>Existing Data from Excel</h2>
+    <table id="data-table" border="1">
+        <thead>
+            <tr>
+                <th>Product Number</th>
+                <th>Serial Number</th>
+                <th>Product Name</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+    </table>
+</body>
+</html>
